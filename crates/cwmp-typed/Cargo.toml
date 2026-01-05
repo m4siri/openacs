@@ -1,0 +1,8 @@
+[package]
+name = "cwmp-typed"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cwmp-schema = { workspace = true }
+xsd-parser-types = { workspace = true }
