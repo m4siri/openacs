@@ -11,6 +11,8 @@ pub fn parse_message(message: &str) -> Result<(), Box<dyn std::error::Error>> {
     {
         let mut doc = EnvelopeType::deserialize(&mut reader)?;
 
+        dbg!(&doc);
+
         for rpc in doc.body.any.into_iter().take(1) {
             let method_name = rpc.qname().local_name();
             match method_name.as_ref() {
@@ -50,10 +52,9 @@ impl TryInto<GetParameterValuesResponse> for SchemaGetParameterValuesResponse {
         if let Some(content) = content {
             let elements = content.any;
             for element in elements.into_iter() {
-            // https://github.com/Bergmann89/xsd-parser/blob/master/xsd-parser-types/src/xml/value.rs#L13
-            // Value has 4 different types, I'm not sure if type is ever a Element in this case.
-            // so will be handling only Text()
-                
+                // https://github.com/Bergmann89/xsd-parser/blob/master/xsd-parser-types/src/xml/value.rs#L13
+                // Value has 4 different types, I'm not sure if type is ever a Element in this case.
+                // so will be handling only Text()
             }
         }
         Ok(GetParameterValuesResponse { parameter_list })

@@ -1,36 +1,38 @@
+use quote::ToTokens;
+use std::borrow::Cow;
 use std::fs::File;
 use std::io::Write;
 use std::process::{Command, Output, Stdio};
-use quote::ToTokens;
-
+use xsd_parser::config::Resolver;
+use xsd_parser::models::meta::{
+    ElementMeta, ElementMode, ElementsMeta, GroupMeta, MetaTypeVariant,
+};
+use xsd_parser::models::schema::MaxOccurs;
 use xsd_parser::pipeline::renderer::NamespaceSerialization;
 use xsd_parser::{
-    config::{GeneratorFlags, InterpreterFlags, RendererFlags, OptimizerFlags, ParserFlags, RenderStep, Schema,Generate, IdentTriple},
-    generate, Config, Error,   
+    Config, Error, Ident,
+    config::{
+        Generate, GeneratorFlags, IdentTriple, InterpreterFlags, NamespaceIdent, OptimizerFlags,
+        ParserFlags, RenderStep, RendererFlags, Schema,
+    },
     exec_generator, exec_interpreter, exec_optimizer, exec_parser, exec_render,
-    models::{meta::MetaTypes, schema::Schemas, IdentType},
+    models::{
+        IdentType, Name,
+        meta::MetaTypes,
+        schema::{Schemas, xs::FormChoiceType},
+    },
 };
-
-use xsd_parser::models::meta::MetaTypeVariant;
-use xsd_parser::models::meta::ElementMetaVariant;
-use xsd_parser::models::meta::ElementMode;
-use xsd_parser::config::Resolver;
-
 
 fn main() -> Result<(), Error> {
     let mut config = Config::default();
     config.parser.schemas = vec![
         Schema::File("xsd/cwmp-1-0.xsd".into()),
         Schema::File("xsd/cwmp-1-1.xsd".into()),
-        Schema::File("xsd/cwmp-1-2.xsd".into()),
-        Schema::File("xsd/cwmp-1-3.xsd".into()),
-        Schema::File("xsd/cwmp-1-4.xsd".into()),
+        Schema::File("xsd/cwmp-1-4.xsd".into()), // this imports 1-2. 1-3 & 1-4 are not completely versions
+                                                 // but rather just an extension to 1-2
     ];
 
-    config.parser.resolver = vec![
-        Resolver::Web,
-        Resolver::File
-    ];
+    config.parser.resolver = vec![Resolver::Web, Resolver::File];
 
     config.parser.flags = ParserFlags::all();
     config.interpreter.flags = InterpreterFlags::all();
@@ -55,31 +57,128 @@ fn main() -> Result<(), Error> {
 
     let schemas = exec_parser(config.parser)?;
     let meta_types = exec_interpreter(config.interpreter, &schemas)?;
-    let meta_types = define_custom_names(&schemas, meta_types)?;
+    let meta_types = typed_envelope_header(&schemas, meta_types)?;
     let meta_types = exec_optimizer(config.optimizer, meta_types)?;
     let data_types = exec_generator(config.generator, &schemas, &meta_types)?;
     let module = exec_render(config.renderer, &data_types)?;
 
-
-    // let code = generate(config)?;
-    // let code = code.to_string();
     let code = module.to_token_stream().to_string();
 
-
-    // Use a small helper to pretty-print the code (it uses `RUSTFMT`).
     let code = rustfmt_pretty_print(code).unwrap();
 
-    // there's an extra arrayType in the schema that's a string type
-    let code = code.to_string().replace("pub type ArrayType = ::std::string::String;", "// pub type ArrayType = ::std::string::String;");
+    // there's an extra of each for some reason,
+    // which i haven't cared to figure out yet, commenting out works.
+    let code = code
+        .to_string()
+        .replace(
+            "pub type ArrayType = ::std::string::String;",
+            "// pub type ArrayType = ::std::string::String;",
+        )
+        .replacen(
+            "pub type Id = IdElementType;
+pub type IdElementType = IdElementType;
+",
+            "",
+            2,
+        );
 
     let mut file = File::create("src/schema.rs")?;
     file.write_all(code.as_bytes())?;
-
     Ok(())
 }
 
-// A small helper to call `rustfmt` when generating file(s).
-// This may be useful to compare different versions of generated files.
+fn typed_envelope_header(schemas: &Schemas, mut types: MetaTypes) -> Result<MetaTypes, Error> {
+    let header_container = IdentTriple::from((
+        IdentType::Type,
+        Some(NamespaceIdent::namespace(
+            b"http://schemas.xmlsoap.org/soap/envelope/",
+        )),
+        "Header",
+    ))
+    .resolve(schemas)
+    .unwrap();
+
+    // The header ID exists on all versions, they're structurally same
+    // so we are just creating one of each types at a global namespace, rather
+    // than inside modules of their each. I assume this should be done for parsing
+    // the body into an enum as well.
+    let headers = [
+        ("ID", "urn:dslforum-org:cwmp-1-0"),
+        ("SessionTimeout", "urn:dslforum-org:cwmp-1-2"),
+        ("SupportedCWMPVersions", "urn:dslforum-org:cwmp-1-2"),
+        ("UseCWMPVersion", "urn:dslforum-org:cwmp-1-2"),
+    ]
+    .into_iter()
+    .map(|(name, ns)| {
+        let ident_ty = Ident {
+            ns: None,
+            name: Name::Named(Cow::Borrowed(&name)),
+            type_: IdentType::ElementType,
+        };
+
+        let ident = Ident {
+            ns: None,
+            name: Name::Named(Cow::Borrowed(&name)),
+            type_: IdentType::Element,
+        };
+
+        let ident_ty_meta = {
+            let ident = IdentTriple::from((
+                IdentType::ElementType,
+                Some(NamespaceIdent::namespace(ns.as_bytes())),
+                name,
+            ))
+            .resolve(schemas)
+            .unwrap();
+            types.items.get(&ident).unwrap().clone()
+        };
+
+        types.items.insert(ident_ty.clone(), ident_ty_meta);
+
+        let ident_meta = {
+            let ident = IdentTriple::from((
+                IdentType::Element,
+                Some(NamespaceIdent::namespace(ns.as_bytes())),
+                name,
+            ))
+            .resolve(schemas)
+            .unwrap();
+            types.items.get(&ident).unwrap().clone()
+        };
+
+        types.items.insert(ident.clone(), ident_meta.clone());
+
+        (ident_ty, ident)
+    })
+    .map(|(ident_ty, ident)| {
+        ElementMeta::new(
+            ident.clone(),
+            ident_ty.clone(),
+            ElementMode::Element,
+            FormChoiceType::Unqualified,
+        )
+    })
+    .collect::<Vec<_>>();
+
+    let inner_ident = {
+        let header_ty = types.items.get_mut(&header_container).unwrap();
+        let MetaTypeVariant::ComplexType(complex_ty) = &mut header_ty.variant else {
+            panic!("Header is not a ComplexType");
+        };
+        complex_ty.max_occurs = MaxOccurs::Unbounded;
+        complex_ty.min_occurs = 0;
+        complex_ty.content.clone().unwrap()
+    };
+
+    let inner_ty = types.items.get_mut(&inner_ident).unwrap();
+    inner_ty.variant = MetaTypeVariant::Choice(GroupMeta {
+        is_mixed: false,
+        elements: ElementsMeta(headers),
+    });
+
+    Ok(types)
+}
+
 pub fn rustfmt_pretty_print(code: String) -> Result<String, Error> {
     let mut child = Command::new("rustfmt")
         .stdin(Stdio::piped())
@@ -117,38 +216,4 @@ pub fn rustfmt_pretty_print(code: String) -> Result<String, Error> {
     }
 
     Ok(stdout.into())
-}
-
-fn define_custom_names(schemas: &Schemas, mut types: MetaTypes) -> Result<MetaTypes, Error> {
-
-    // let target_ident = IdentTriple::from((IdentType::Type, "GetParameterValuesResponse"));
-    // let target_ident = IdentTriple::from((IdentType::Type, "GetParameterValuesResponse"));
-    let ident = IdentTriple::from((IdentType::Type, "GetParameterValuesResponse"));
-    let ident = ident.resolve(schemas)?;
-
-    // dbg!("HERERER");
-    // dbg!(&ident);
-
-    // dbg!(&ident);
-    //  let ty = types.items.get_mut(&ident).unwrap();
-    // let MetaTypeVariant::ComplexType(ty) = &ty.variant else { panic!(); }; // I assume your type is a complex type
-    // let content = ty.content.clone().unwrap();
-    
-    // // Get the content type
-    // let ty = types.items.get_mut(&ident).unwrap();
-    // let MetaTypeVariant::Sequence(ty) = &mut ty.variant else { panic!(); }; // I assume the content of your type is a sequence
-    // let ti = target_ident.resolve(schemas)?;
-    // // Loop through the elements
-    // for el in &mut *ty.elements {
-    //     if el.ident.name.as_str() == "my-element" {
-    //         let schema = ti.clone();
-    //         el.variant = ElementMetaVariant::Type { // For simplicity I assign a new `ElementMetaVariant` here
-    //             type_: schema,                // A better approach would be to check if it is a `::Type`
-    //             mode: ElementMode::Element,         // and then only assign `type_`.
-    //         }
-    //     }
-    // }
-
-    Ok(types)
-
 }
