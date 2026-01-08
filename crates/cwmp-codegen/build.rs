@@ -5,7 +5,8 @@ use std::io::Write;
 use std::process::{Command, Output, Stdio};
 use xsd_parser::config::Resolver;
 use xsd_parser::models::meta::{
-    ElementMeta, ElementMode, ElementsMeta, GroupMeta, MetaTypeVariant,
+    Base, Constrains, ElementMeta, ElementMetaVariant, ElementMode, ElementsMeta, GroupMeta,
+    MetaType, MetaTypeVariant, ReferenceMeta, SimpleMeta, UnionMeta, UnionMetaType, UnionMetaTypes,
 };
 use xsd_parser::models::schema::MaxOccurs;
 use xsd_parser::pipeline::renderer::NamespaceSerialization;
@@ -18,10 +19,11 @@ use xsd_parser::{
     exec_generator, exec_interpreter, exec_optimizer, exec_parser, exec_render,
     models::{
         IdentType, Name,
-        meta::MetaTypes,
-        schema::{Schemas, xs::FormChoiceType},
+        meta::{MetaTypes, ModuleMeta, SchemaMeta},
+        schema::{NamespaceId, SchemaId, Schemas, xs::FormChoiceType},
     },
 };
+use xsd_parser_types::misc::Namespace;
 
 fn main() -> Result<(), Error> {
     let mut config = Config::default();
@@ -58,6 +60,7 @@ fn main() -> Result<(), Error> {
     let schemas = exec_parser(config.parser)?;
     let meta_types = exec_interpreter(config.interpreter, &schemas)?;
     let meta_types = typed_envelope_header(&schemas, meta_types)?;
+    let meta_types = typed_envelope_body(&schemas, meta_types)?;
     let meta_types = exec_optimizer(config.optimizer, meta_types)?;
     let data_types = exec_generator(config.generator, &schemas, &meta_types)?;
     let module = exec_render(config.renderer, &data_types)?;
@@ -87,6 +90,7 @@ pub type IdElementType = IdElementType;
     Ok(())
 }
 
+// TODO: refactor
 fn typed_envelope_header(schemas: &Schemas, mut types: MetaTypes) -> Result<MetaTypes, Error> {
     let header_container = IdentTriple::from((
         IdentType::Type,
@@ -175,6 +179,161 @@ fn typed_envelope_header(schemas: &Schemas, mut types: MetaTypes) -> Result<Meta
         is_mixed: false,
         elements: ElementsMeta(headers),
     });
+
+    Ok(types)
+}
+fn get_envelope_fault(schemas: &Schemas) -> Ident {
+    IdentTriple::from((
+        IdentType::Type,
+        Some(NamespaceIdent::namespace(
+            b"http://schemas.xmlsoap.org/soap/envelope/",
+        )),
+        "Fault",
+    ))
+    .resolve(schemas)
+    .unwrap()
+}
+
+fn typed_envelope_fault(schemas: &Schemas, mut types: MetaTypes) -> Result<MetaTypes, Error> {
+    let efault_ident = get_envelope_fault(schemas);
+
+    let fault_elem_meta = ElementMeta::new(
+        efault_ident.clone(),
+        efault_ident.clone(),
+        ElementMode::Element,
+        FormChoiceType::Unqualified,
+    );
+
+    let elements = ElementsMeta(vec![fault_elem_meta]);
+
+    let body_ident = IdentTriple::from((
+        IdentType::Type,
+        Some(NamespaceIdent::namespace(
+            b"http://schemas.xmlsoap.org/soap/envelope/",
+        )),
+        "Body",
+    ))
+    .resolve(schemas)
+    .unwrap();
+
+    let body_content_ident = {
+        let body_ty = types.items.get_mut(&body_ident).unwrap();
+        let MetaTypeVariant::ComplexType(body_inner) = &mut body_ty.variant else {
+            panic!()
+        };
+        body_inner.max_occurs = MaxOccurs::Unbounded;
+
+        body_inner.content.clone().unwrap()
+    };
+
+    let content = types.items.get_mut(&body_content_ident).unwrap();
+    content.variant = MetaTypeVariant::Choice(GroupMeta {
+        is_mixed: false,
+        elements,
+    });
+
+    Ok(types)
+}
+
+fn create_no_namespace_faults(schemas: &Schemas, mut types: MetaTypes) -> Result<MetaTypes, Error> {
+    // creating a dupe of 1-2 but without a ns, 1-2 specifically
+    // cause im guessing its backwards compatible and contains new feature if exists.
+    let fault_ident = IdentTriple::from((
+        IdentType::ElementType,
+        Some(NamespaceIdent::namespace(b"urn:dslforum-org:cwmp-1-2")),
+        "Fault",
+    ))
+    .resolve(schemas)
+    .unwrap();
+
+    let fault_meta = types.items.get(&fault_ident).unwrap().clone();
+    let core_ident = Ident {
+        ns: None,
+        name: Name::named("Fault"),
+        type_: IdentType::ElementType,
+    };
+
+    types.items.insert(core_ident.clone(), fault_meta);
+
+    // swap references
+    let _: Vec<_> = [
+        "urn:dslforum-org:cwmp-1-0",
+        "urn:dslforum-org:cwmp-1-1",
+        "urn:dslforum-org:cwmp-1-2",
+    ]
+    .into_iter()
+    .map(|ns| {
+        let ident = IdentTriple::from((
+            IdentType::Element,
+            Some(NamespaceIdent::namespace(ns.as_bytes())),
+            "Fault",
+        ))
+        .resolve(schemas)
+        .unwrap();
+        {
+            let meta = types.items.get_mut(&ident).unwrap();
+            let MetaTypeVariant::Reference(inner) = &mut meta.variant else {
+                panic!()
+            };
+
+            inner.type_ = core_ident.clone();
+        }
+        let ident = IdentTriple::from((
+            IdentType::ElementType,
+            Some(NamespaceIdent::namespace(ns.as_bytes())),
+            "Fault",
+        ))
+        .resolve(schemas)
+        .unwrap();
+
+        types.items.remove(&ident);
+        ns
+    })
+    .collect();
+
+    Ok(types)
+}
+
+fn typed_cwmp_fault(schemas: &Schemas, types: MetaTypes) -> Result<MetaTypes, Error> {
+    let mut types = create_no_namespace_faults(schemas, types).unwrap();
+    let fault_ident = IdentTriple::from((IdentType::ElementType, None, "Fault"))
+        .resolve(schemas)
+        .unwrap();
+
+    let detail_ident = IdentTriple::from((
+        IdentType::Type,
+        Some(NamespaceIdent::namespace(
+            b"http://schemas.xmlsoap.org/soap/envelope/",
+        )),
+        "detail",
+    ))
+    .resolve(schemas)
+    .unwrap();
+
+    let detail_ident = {
+        let detail_meta = types.items.get_mut(&detail_ident).unwrap();
+        let MetaTypeVariant::ComplexType(content) = &mut detail_meta.variant else {
+            panic!()
+        };
+        content.content.clone().unwrap()
+    };
+    let detail_meta = types.items.get_mut(&detail_ident).unwrap();
+    detail_meta.variant = MetaTypeVariant::Sequence(GroupMeta {
+        is_mixed: false,
+        elements: ElementsMeta(vec![ElementMeta::new(
+            fault_ident.clone(),
+            fault_ident.clone(),
+            ElementMode::Element,
+            FormChoiceType::Unqualified,
+        )]),
+    });
+
+    Ok(types)
+}
+
+fn typed_envelope_body(schemas: &Schemas, types: MetaTypes) -> Result<MetaTypes, Error> {
+    let types = typed_envelope_fault(schemas, types).unwrap();
+    let types = typed_cwmp_fault(schemas, types).unwrap();
 
     Ok(types)
 }

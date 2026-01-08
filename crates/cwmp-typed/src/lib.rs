@@ -13,15 +13,15 @@ pub fn parse_message(message: &str) -> Result<(), Box<dyn std::error::Error>> {
 
         dbg!(&doc);
 
-        for rpc in doc.body.any.into_iter().take(1) {
-            let method_name = rpc.qname().local_name();
-            match method_name.as_ref() {
-                b"GetParameterValuesResponse" => {
-                    let _ = parse_get_parameter_values_response(rpc);
-                }
-                t @ _ => todo!(),
-            };
-        }
+        // for rpc in doc.body.any.into_iter().take(1) {
+        //     let method_name = rpc.qname().local_name();
+        //     match method_name.as_ref() {
+        //         b"GetParameterValuesResponse" => {
+        //             let _ = parse_get_parameter_values_response(rpc);
+        //         }
+        //         t @ _ => todo!(),
+        //     };
+        // }
     }
 
     Ok(())

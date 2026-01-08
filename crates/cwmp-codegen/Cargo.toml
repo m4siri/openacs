@@ -11,6 +11,6 @@ url.workspace = true
 [build-dependencies]
 quote = "1.0"
 anyhow = "1.0"
-
 xsd-parser = { workspace = true, features = [ "web-resolver", "reqwest"] }
+xsd-parser-types = { workspace = true, features = [ "quick-xml", "num"] }
 url.workspace = true
