@@ -5,8 +5,9 @@ use std::io::Write;
 use std::process::{Command, Output, Stdio};
 use xsd_parser::config::Resolver;
 use xsd_parser::models::meta::{
-    Base, Constrains, ElementMeta, ElementMetaVariant, ElementMode, ElementsMeta, GroupMeta,
-    MetaType, MetaTypeVariant, ReferenceMeta, SimpleMeta, UnionMeta, UnionMetaType, UnionMetaTypes,
+    AttributesMeta, Base, BuildInMeta, Constrains, ElementMeta, ElementMetaVariant, ElementMode,
+    ElementsMeta, GroupMeta, MetaType, MetaTypeVariant, ReferenceMeta, SimpleMeta, UnionMeta,
+    UnionMetaType, UnionMetaTypes,
 };
 use xsd_parser::models::schema::MaxOccurs;
 use xsd_parser::pipeline::renderer::NamespaceSerialization;
@@ -194,7 +195,143 @@ fn get_envelope_fault(schemas: &Schemas) -> Ident {
     .unwrap()
 }
 
+fn typed_body_rpc(schemas: &Schemas, types: &mut MetaTypes) -> Result<Vec<ElementMeta>, Error> {
+    let elements: Vec<_> = [
+        "GetRPCMethods",
+        "SetParameterValues",
+        "GetParameterValues",
+        "GetParameterNames",
+        "SetParameterAttributes",
+        "GetParameterAttributes",
+        "AddObject",
+        "DeleteObject",
+        "Reboot",
+        "Download",
+        "ScheduleDownload",
+        "Upload",
+        "FactoryReset",
+        "GetAllQueuedTransfers",
+        "CancelTransfer",
+        "ScheduleInform",
+        "ChangeDUState",
+        "GetRPCMethodsResponse",
+        "SetParameterValuesResponse",
+        "GetParameterValuesResponse",
+        "GetParameterNamesResponse",
+        "SetParameterAttributesResponse",
+        "GetParameterAttributesResponse",
+        "AddObjectResponse",
+        "DeleteObjectResponse",
+        "RebootResponse",
+        "DownloadResponse",
+        "ScheduleDownloadResponse",
+        "UploadResponse",
+        "FactoryResetResponse",
+        "GetAllQueuedTransfersResponse",
+        "CancelTransferResponse",
+        "ScheduleInformResponse",
+        "ChangeDUStateResponse",
+    ]
+    .into_iter()
+    .map(|rpc_method| {
+        let ident_main = Ident {
+            ns: None,
+            name: Name::Named(Cow::Borrowed(rpc_method)),
+            type_: IdentType::Element,
+        };
+
+        let ident = IdentTriple::from((
+            IdentType::Element,
+            Some(NamespaceIdent::namespace(b"urn:dslforum-org:cwmp-1-2")),
+            rpc_method,
+        ))
+        .resolve(schemas)
+        .unwrap();
+        {
+            let meta = types.items.get(&ident).unwrap();
+            types.items.insert(ident_main.clone(), meta.clone());
+        }
+        let _ = [
+            "urn:dslforum-org:cwmp-1-0",
+            "urn:dslforum-org:cwmp-1-1",
+            "urn:dslforum-org:cwmp-1-2",
+        ]
+        .into_iter()
+        .map(|ns| {
+            let ident = IdentTriple::from((
+                IdentType::Element,
+                Some(NamespaceIdent::namespace(ns.as_bytes())),
+                rpc_method,
+            ))
+            .resolve(schemas)
+            .unwrap();
+            types.items.remove(&ident);
+        })
+        .collect::<Vec<_>>();
+
+        ElementMeta::new(
+            ident_main.clone(),
+            ident_main.clone(),
+            ElementMode::Element,
+            FormChoiceType::Unqualified,
+        )
+    })
+    .collect();
+    Ok(elements)
+}
+
+// experimenting chaning the inner structure as well
+// to make things easier
+fn typed_get_rpc_methods(schemas: &Schemas, mut types: MetaTypes) -> Result<MetaTypes, Error> {
+    let array_type_ident = IdentTriple::from((
+        IdentType::Attribute,
+        Some(NamespaceIdent::namespace(
+            b"http://schemas.xmlsoap.org/soap/encoding/",
+        )),
+        "arrayType",
+    ))
+    .resolve(schemas)
+    .unwrap();
+    let ml_inner = MetaType::new(MetaTypeVariant::Sequence(GroupMeta {
+        is_mixed: false,
+        elements: ElementsMeta(vec![ElementMeta {
+            ident: Ident {
+                type_: IdentType::Element,
+                ns: None,
+                name: Name::named("string"),
+            },
+            variant: ElementMetaVariant::Type {
+                type_: array_type_ident.clone(),
+                mode: ElementMode::Element,
+            },
+            form: FormChoiceType::Unqualified,
+            nillable: false,
+            min_occurs: 1,
+            max_occurs: MaxOccurs::Unbounded,
+            display_name: None,
+            documentation: Vec::new(),
+        }]),
+    }));
+    let ml_ident = Ident::new("MethodListContent".into());
+    types.items.insert(ml_ident.clone(), ml_inner);
+    let ty = Ident {
+        type_: IdentType::Type,
+        ns: Some(NamespaceId(6)),
+        name: Name::named("MethodList".into()),
+    };
+    let meta = types.items.get_mut(&ty).unwrap();
+    let MetaTypeVariant::ComplexType(inner) = &mut meta.variant else {
+        panic!()
+    };
+
+    inner.base = Base::Restriction(ml_ident.clone());
+
+    Ok(types)
+}
+
 fn typed_envelope_fault(schemas: &Schemas, mut types: MetaTypes) -> Result<MetaTypes, Error> {
+    let mut types = typed_get_rpc_methods(schemas, types).unwrap();
+
     let efault_ident = get_envelope_fault(schemas);
 
     let fault_elem_meta = ElementMeta::new(
@@ -203,8 +340,10 @@ fn typed_envelope_fault(schemas: &Schemas, mut types: MetaTypes) -> Result<MetaT
         ElementMode::Element,
         FormChoiceType::Unqualified,
     );
+    let mut rpc = typed_body_rpc(schemas, &mut types).unwrap();
+    rpc.push(fault_elem_meta);
 
-    let elements = ElementsMeta(vec![fault_elem_meta]);
+    let elements = ElementsMeta(rpc);
 
     let body_ident = IdentTriple::from((
         IdentType::Type,
