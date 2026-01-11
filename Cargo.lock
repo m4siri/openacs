@@ -127,6 +127,7 @@ name = "cwmp-typed"
 version = "0.1.0"
 dependencies = [
  "cwmp-schema",
+ "quick-xml",
  "xsd-parser-types",
 ]
 

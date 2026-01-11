@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 cwmp-schema = { workspace = true }
 xsd-parser-types = { workspace = true }
+quick-xml = {  workspace = true }

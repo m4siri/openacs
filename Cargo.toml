@@ -7,3 +7,4 @@ url = { version = "2.5.7" }
 xsd-parser = { git = "https://github.com/Bergmann89/xsd-parser", rev = "d6a8a542bc242d74b56d8481cfd4b96edf5612ee"}
 xsd-parser-types = { git = "https://github.com/Bergmann89/xsd-parser", rev = "d6a8a542bc242d74b56d8481cfd4b96edf5612ee"}
 cwmp-schema = { path = "crates/cwmp-codegen"}
+quick-xml = { version = "0.38.4" }
