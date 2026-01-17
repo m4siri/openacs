@@ -43,3 +43,17 @@ impl From<ParameterValueStruct> for AnyElement {
         root
     }
 }
+impl From<ParameterList> for AnyElement {
+    fn from(input: ParameterList) -> Self {
+        let mut root = AnyElement::new()
+            .name(Cow::Borrowed(b"ParameterList".as_ref()))
+            .attribute(
+                Cow::Borrowed(b"soapenc:arrayType".as_ref()),
+                Cow::Owned(format!("cwmp:ParameterValueStruct[{}]", &input.0.len()).into_bytes()),
+            );
+        for param in input.0.into_iter() {
+            root = root.child(Value::Element(param.into()));
+        }
+        root
+    }
+}

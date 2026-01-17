@@ -34,9 +34,10 @@ impl TryFrom<EnvelopeBody> for AnyElement {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(input: EnvelopeBody) -> Result<Self, Self::Error> {
-        let body = match input {
-            EnvelopeBody::Request(inner) => <CwmpRequest as Into<AnyElement>>::into(inner),
+        let body: AnyElement = match input {
+            EnvelopeBody::Request(inner) => inner.into(),
             EnvelopeBody::Response(_) => unimplemented!(), // TODO: change to a known error type after we have one
+                                                           // currently this library is expected to be used as acs
         };
         Ok(AnyElement::new()
             .name(Cow::Borrowed(b"soap:Body".as_ref()))
