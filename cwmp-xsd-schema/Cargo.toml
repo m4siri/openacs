@@ -1,0 +1,15 @@
+[package]
+name = "cwmp-xsd-schema"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+xsd-parser-types = { workspace = true, features = [ "quick-xml", "num"]  }
+cwmp-xsd-types = { workspace = true }
+num = { workspace = true }
+
+[build-dependencies]
+quote = "1.0"
+url = { workspace = true }
+xsd-parser = { workspace = true, features = [ "web-resolver", "reqwest"] }
+xsd-parser-types = { workspace = true, features = [ "quick-xml", "num"]  }
