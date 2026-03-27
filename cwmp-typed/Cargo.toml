@@ -1,0 +1,12 @@
+[package]
+name = "cwmp-typed"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+quick-xml = { workspace = true }
+xsd-parser-types = { workspace = true, features = [ "quick-xml", "num" ]}
+thiserror = { workspace = true }
+num = { workspace = true }
+cwmp-xsd-schema = { workspace = true }
+cwmp-xsd-types = { workspace = true }

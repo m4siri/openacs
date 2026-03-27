@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           targetNamespace="http://www.w3.org/2001/XMLSchema-instance"
+           elementFormDefault="qualified">
+
+  <xs:annotation>
+    <xs:documentation>
+      XML Schema Instance namespace
+      Official W3C definition for XSI attributes used in instance documents
+    </xs:documentation>
+  </xs:annotation>
+
+  <!-- Attribute: type -->
+  <xs:attribute name="type" type="xs:QName">
+    <xs:annotation>
+      <xs:documentation>
+        Specifies the type of the element content.
+        Used for specifying derived types in place of base types.
+      </xs:documentation>
+    </xs:annotation>
+  </xs:attribute>
+
+  <!-- Attribute: nil -->
+  <xs:attribute name="nil" type="xs:boolean">
+    <xs:annotation>
+      <xs:documentation>
+        Indicates that an element is nil (null).
+        The element must be declared as nillable in the schema.
+      </xs:documentation>
+    </xs:annotation>
+  </xs:attribute>
+
+  <!-- Attribute: schemaLocation -->
+  <xs:attribute name="schemaLocation">
+    <xs:annotation>
+      <xs:documentation>
+        Provides hints to the processor about the location of schema documents.
+        Value is a list of namespace/URI pairs separated by whitespace.
+        Format: "namespace1 location1 namespace2 location2 ..."
+      </xs:documentation>
+    </xs:annotation>
+    <xs:simpleType>
+      <xs:list itemType="xs:anyURI"/>
+    </xs:simpleType>
+  </xs:attribute>
+
+  <!-- Attribute: noNamespaceSchemaLocation -->
+  <xs:attribute name="noNamespaceSchemaLocation" type="xs:anyURI">
+    <xs:annotation>
+      <xs:documentation>
+        Provides a hint to the processor about the location of a schema document
+        for elements that are not in any namespace.
+      </xs:documentation>
+    </xs:annotation>
+  </xs:attribute>
+
+  <!-- Attribute Group: Instance Attributes -->
+  <xs:attributeGroup name="instanceAttributes">
+    <xs:annotation>
+      <xs:documentation>
+        Convenience attribute group containing all XSI attributes.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:attribute ref="xsi:type"/>
+    <xs:attribute ref="xsi:nil"/>
+    <xs:attribute ref="xsi:schemaLocation"/>
+    <xs:attribute ref="xsi:noNamespaceSchemaLocation"/>
+  </xs:attributeGroup>
+
+</xs:schema>

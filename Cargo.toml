@@ -1,0 +1,13 @@
+[workspace]
+resolver = "3"
+members = ["cwmp-typed","cwmp-xsd-schema", "cwmp-xsd-types"]
+
+[workspace.dependencies]
+cwmp-xsd-types = { path = "./cwmp-xsd-types" }
+cwmp-xsd-schema = { path = "./cwmp-xsd-schema" }
+xsd-parser = { git = "https://github.com/Bergmann89/xsd-parser", rev = "d6a8a542bc242d74b56d8481cfd4b96edf5612ee", features = [ "web-resolver", "reqwest"] }
+xsd-parser-types = { git = "https://github.com/Bergmann89/xsd-parser", rev = "d6a8a542bc242d74b56d8481cfd4b96edf5612ee", features = [ "quick-xml", "num"]  }
+url = { version = "2.5.7" }
+num = "0.4.3"
+quick-xml = { version = "0.38.4" }
+thiserror = { version = "2.0.18"}
