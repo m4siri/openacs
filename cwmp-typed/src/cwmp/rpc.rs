@@ -1,7 +1,9 @@
 use super::CwmpVersion;
 use super::types::{
-    AddObject, DeleteObject, Download, GetParameterNames, GetRPCMethodsResponse, ParameterList,
-    ParameterName, ParameterNames, ParameterValueStruct, Reboot, SetParameterAttributesStruct,
+    AddObject, AddObjectResponse, DeleteObject, DeleteObjectResponse, Download, DownloadResponse,
+    GetParameterAttributesResponse, GetParameterNames, GetParameterNamesResponse,
+    GetParameterValuesResponse, GetRPCMethodsResponse, ParameterList, ParameterNames,
+    ParameterValueStruct, Reboot, SetParameterAttributesStruct, SetParameterValuesResponse,
 };
 use crate::error::Error;
 use std::borrow::Cow;
@@ -24,6 +26,16 @@ pub enum RpcMethod {
     FactoryReset,
     Download(Download),
     GetRPCMethodsResponse(GetRPCMethodsResponse),
+    GetParameterNamesResponse(GetParameterNamesResponse),
+    SetParameterValuesResponse(SetParameterValuesResponse),
+    GetParameterValuesResponse(GetParameterValuesResponse),
+    SetParameterAttributesResponse,
+    GetParameterAttributesResponse(GetParameterAttributesResponse),
+    AddObjectResponse(AddObjectResponse),
+    DeleteObjectResponse(DeleteObjectResponse),
+    RebootResponse,
+    FactoryResetResponse,
+    DownloadResponse(DownloadResponse),
 }
 
 #[derive(Debug)]
@@ -199,6 +211,162 @@ impl TryFrom<cwmp_xsd_schema::soapenv::BodyTypeContent> for Rpc {
             RpcBody::GetRpcMethodsResponse12(inner) => Ok(Rpc::from((
                 CwmpVersion::_12,
                 RpcMethod::GetRPCMethodsResponse(inner.method_list.try_into()?),
+            ))),
+            RpcBody::GetParameterNamesResponse10(inner) => Ok(Rpc::from((
+                CwmpVersion::_10,
+                RpcMethod::GetParameterNamesResponse(inner.parameter_list.try_into()?),
+            ))),
+            RpcBody::GetParameterNamesResponse11(inner) => Ok(Rpc::from((
+                CwmpVersion::_11,
+                RpcMethod::GetParameterNamesResponse(inner.parameter_list.try_into()?),
+            ))),
+            RpcBody::GetParameterNamesResponse12(inner) => Ok(Rpc::from((
+                CwmpVersion::_12,
+                RpcMethod::GetParameterNamesResponse(inner.parameter_list.try_into()?),
+            ))),
+            RpcBody::SetParameterValuesResponse10(inner) => Ok(Rpc::from((
+                CwmpVersion::_10,
+                RpcMethod::SetParameterValuesResponse(SetParameterValuesResponse::new(
+                    inner.status,
+                )),
+            ))),
+            RpcBody::SetParameterValuesResponse11(inner) => Ok(Rpc::from((
+                CwmpVersion::_11,
+                RpcMethod::SetParameterValuesResponse(SetParameterValuesResponse::new(
+                    inner.status,
+                )),
+            ))),
+            RpcBody::SetParameterValuesResponse12(inner) => Ok(Rpc::from((
+                CwmpVersion::_12,
+                RpcMethod::SetParameterValuesResponse(SetParameterValuesResponse::new(
+                    inner.status,
+                )),
+            ))),
+            RpcBody::GetParameterValuesResponse10(inner) => Ok(Rpc::from((
+                CwmpVersion::_10,
+                RpcMethod::GetParameterValuesResponse(GetParameterValuesResponse::new(
+                    inner.parameter_list,
+                )?),
+            ))),
+            RpcBody::GetParameterValuesResponse11(inner) => Ok(Rpc::from((
+                CwmpVersion::_11,
+                RpcMethod::GetParameterValuesResponse(GetParameterValuesResponse::new(
+                    inner.parameter_list,
+                )?),
+            ))),
+            RpcBody::GetParameterValuesResponse12(inner) => Ok(Rpc::from((
+                CwmpVersion::_12,
+                RpcMethod::GetParameterValuesResponse(GetParameterValuesResponse::new(
+                    inner.parameter_list,
+                )?),
+            ))),
+            RpcBody::SetParameterAttributesResponse10(_) => Ok(Rpc::from((
+                CwmpVersion::_10,
+                RpcMethod::SetParameterAttributesResponse,
+            ))),
+            RpcBody::SetParameterAttributesResponse11(_) => Ok(Rpc::from((
+                CwmpVersion::_11,
+                RpcMethod::SetParameterAttributesResponse,
+            ))),
+            RpcBody::SetParameterAttributesResponse12(_) => Ok(Rpc::from((
+                CwmpVersion::_12,
+                RpcMethod::SetParameterAttributesResponse,
+            ))),
+            RpcBody::GetParameterAttributesResponse10(inner) => Ok(Rpc::from((
+                CwmpVersion::_10,
+                RpcMethod::GetParameterAttributesResponse(GetParameterAttributesResponse::new(
+                    inner.parameter_list,
+                )?),
+            ))),
+            RpcBody::GetParameterAttributesResponse11(inner) => Ok(Rpc::from((
+                CwmpVersion::_11,
+                RpcMethod::GetParameterAttributesResponse(GetParameterAttributesResponse::new(
+                    inner.parameter_list,
+                )?),
+            ))),
+            RpcBody::GetParameterAttributesResponse12(inner) => Ok(Rpc::from((
+                CwmpVersion::_12,
+                RpcMethod::GetParameterAttributesResponse(GetParameterAttributesResponse::new(
+                    inner.parameter_list,
+                )?),
+            ))),
+            RpcBody::AddObjectResponse10(inner) => Ok(Rpc::from((
+                CwmpVersion::_10,
+                RpcMethod::AddObjectResponse(AddObjectResponse::new(
+                    inner.instance_number,
+                    inner.status,
+                )),
+            ))),
+            RpcBody::AddObjectResponse11(inner) => Ok(Rpc::from((
+                CwmpVersion::_11,
+                RpcMethod::AddObjectResponse(AddObjectResponse::new(
+                    inner.instance_number,
+                    inner.status,
+                )),
+            ))),
+            RpcBody::AddObjectResponse12(inner) => Ok(Rpc::from((
+                CwmpVersion::_12,
+                RpcMethod::AddObjectResponse(AddObjectResponse::new(
+                    inner.instance_number,
+                    inner.status,
+                )),
+            ))),
+            RpcBody::DeleteObjectResponse10(inner) => Ok(Rpc::from((
+                CwmpVersion::_10,
+                RpcMethod::DeleteObjectResponse(DeleteObjectResponse::new(inner.status)),
+            ))),
+            RpcBody::DeleteObjectResponse11(inner) => Ok(Rpc::from((
+                CwmpVersion::_11,
+                RpcMethod::DeleteObjectResponse(DeleteObjectResponse::new(inner.status)),
+            ))),
+            RpcBody::DeleteObjectResponse12(inner) => Ok(Rpc::from((
+                CwmpVersion::_12,
+                RpcMethod::DeleteObjectResponse(DeleteObjectResponse::new(inner.status)),
+            ))),
+            RpcBody::RebootResponse10(_) => {
+                Ok(Rpc::from((CwmpVersion::_10, RpcMethod::RebootResponse)))
+            }
+            RpcBody::RebootResponse11(_) => {
+                Ok(Rpc::from((CwmpVersion::_11, RpcMethod::RebootResponse)))
+            }
+            RpcBody::RebootResponse12(_) => {
+                Ok(Rpc::from((CwmpVersion::_12, RpcMethod::RebootResponse)))
+            }
+            RpcBody::FactoryResetResponse10(_) => Ok(Rpc::from((
+                CwmpVersion::_10,
+                RpcMethod::FactoryResetResponse,
+            ))),
+            RpcBody::FactoryResetResponse11(_) => Ok(Rpc::from((
+                CwmpVersion::_11,
+                RpcMethod::FactoryResetResponse,
+            ))),
+            RpcBody::FactoryResetResponse12(_) => Ok(Rpc::from((
+                CwmpVersion::_12,
+                RpcMethod::FactoryResetResponse,
+            ))),
+            RpcBody::DownloadResponse10(inner) => Ok(Rpc::from((
+                CwmpVersion::_10,
+                RpcMethod::DownloadResponse(DownloadResponse::new(
+                    inner.status,
+                    inner.start_time,
+                    inner.complete_time,
+                )),
+            ))),
+            RpcBody::DownloadResponse11(inner) => Ok(Rpc::from((
+                CwmpVersion::_11,
+                RpcMethod::DownloadResponse(DownloadResponse::new(
+                    inner.status,
+                    inner.start_time,
+                    inner.complete_time,
+                )),
+            ))),
+            RpcBody::DownloadResponse12(inner) => Ok(Rpc::from((
+                CwmpVersion::_12,
+                RpcMethod::DownloadResponse(DownloadResponse::new(
+                    inner.status,
+                    inner.start_time,
+                    inner.complete_time,
+                )),
             ))),
             _ => unimplemented!(),
         }
@@ -406,6 +574,284 @@ mod test {
                 </soap:Body>
 
             </soap:Envelope>
+"#;
+
+        let cursor = Cursor::new(soap);
+        let mut reader = IoReader::new(cursor).with_error_info();
+        let envelope = EnvelopeType::deserialize(&mut reader).unwrap();
+
+        let rpc: Rpc = envelope.body.content.try_into().unwrap();
+        dbg!(&rpc);
+    }
+
+    #[test]
+    fn deserialize_get_parameter_names_response() {
+        let soap = r#"
+            <?xml version="1.0" encoding="UTF-8"?>
+            <soapenv:Envelope
+              xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+              xmlns:soap="http://schemas.xmlsoap.org/soap/encoding/"
+              xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xmlns:cwmp="urn:dslforum-org:cwmp-1-2">
+
+              <soapenv:Header>
+                <cwmp:ID soapenv:mustUnderstand="1">1234567890</cwmp:ID>
+              </soapenv:Header>
+
+              <soapenv:Body>
+                <cwmp:GetParameterNamesResponse>
+                  <ParameterList soap:arrayType="cwmp:ParameterInfoStruct[10]">
+
+                    <!-- Root device info object -->
+                    <ParameterInfoStruct>
+                      <Name>Device.DeviceInfo.</Name>
+                      <Writable>0</Writable>
+                    </ParameterInfoStruct>
+
+                    <ParameterInfoStruct>
+                      <Name>Device.DeviceInfo.Manufacturer</Name>
+                      <Writable>1</Writable>
+                    </ParameterInfoStruct>
+
+                    <ParameterInfoStruct>
+                      <Name>Device.DeviceInfo.ManufacturerOUI</Name>
+                      <Writable>0</Writable>
+                    </ParameterInfoStruct>
+
+                    <ParameterInfoStruct>
+                      <Name>Device.DeviceInfo.ModelName</Name>
+                      <Writable>0</Writable>
+                    </ParameterInfoStruct>
+
+                    <ParameterInfoStruct>
+                      <Name>Device.DeviceInfo.SerialNumber</Name>
+                      <Writable>0</Writable>
+                    </ParameterInfoStruct>
+
+                    <ParameterInfoStruct>
+                      <Name>Device.DeviceInfo.SoftwareVersion</Name>
+                      <Writable>0</Writable>
+                    </ParameterInfoStruct>
+                              </ParameterList>
+                </cwmp:GetParameterNamesResponse>
+              </soapenv:Body>
+            </soapenv:Envelope>
+"#;
+
+        let cursor = Cursor::new(soap);
+        let mut reader = IoReader::new(cursor).with_error_info();
+        let envelope = EnvelopeType::deserialize(&mut reader).unwrap();
+
+        let rpc: Rpc = envelope.body.content.try_into().unwrap();
+        dbg!(&rpc);
+    }
+
+    #[test]
+    fn deserialize_get_parameter_values_response() {
+        let soap = r#"
+            <?xml version="1.0" encoding="UTF-8"?>
+            <soapenv:Envelope
+              xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+              xmlns:soap="http://schemas.xmlsoap.org/soap/encoding/"
+              xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xmlns:cwmp="urn:dslforum-org:cwmp-1-0">
+
+              <soapenv:Header>
+                <cwmp:ID soapenv:mustUnderstand="1">1234567891</cwmp:ID>
+              </soapenv:Header>
+
+              <soapenv:Body>
+                <cwmp:GetParameterValuesResponse>
+                  <ParameterList soap:arrayType="cwmp:ParameterValueStruct[12]">
+
+                    <!-- Device Info -->
+                    <ParameterValueStruct>
+                      <Name>Device.DeviceInfo.Manufacturer</Name>
+                      <Value xsi:type="xsd:string">Technicolor</Value>
+                    </ParameterValueStruct>
+
+                    <ParameterValueStruct>
+                      <Name>Device.DeviceInfo.ManufacturerOUI</Name>
+                      <Value xsi:type="xsd:string">00A0BC</Value>
+                    </ParameterValueStruct>
+
+                    <ParameterValueStruct>
+                      <Name>Device.DeviceInfo.ModelName</Name>
+                      <Value xsi:type="xsd:string">TC4400</Value>
+                    </ParameterValueStruct>
+
+                    <!-- DNS -->
+                    <ParameterValueStruct>
+                      <Name>Device.DNS.Client.Server.1.DNSServer</Name>
+                      <Value xsi:type="xsd:string">8.8.8.8</Value>
+                    </ParameterValueStruct>
+
+                    <!-- Management Server -->
+                    <ParameterValueStruct>
+                      <Name>Device.ManagementServer.PeriodicInformInterval</Name>
+                      <Value xsi:type="xsd:unsignedInt">86400</Value>
+                    </ParameterValueStruct>
+
+                  </ParameterList>
+                </cwmp:GetParameterValuesResponse>
+              </soapenv:Body>
+
+            </soapenv:Envelope>
+"#;
+
+        let cursor = Cursor::new(soap);
+        let mut reader = IoReader::new(cursor).with_error_info();
+        let envelope = EnvelopeType::deserialize(&mut reader).unwrap();
+
+        let rpc: Rpc = envelope.body.content.try_into().unwrap();
+        dbg!(&rpc);
+    }
+
+    #[test]
+    fn deserialize_get_parameter_attributes_response() {
+        let soap = r#"
+            <?xml version="1.0" encoding="UTF-8"?>
+            <soapenv:Envelope
+              xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+              xmlns:soap="http://schemas.xmlsoap.org/soap/encoding/"
+              xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xmlns:cwmp="urn:dslforum-org:cwmp-1-2">
+
+              <soapenv:Header>
+                <cwmp:ID soapenv:mustUnderstand="1">1234567893</cwmp:ID>
+              </soapenv:Header>
+
+              <soapenv:Body>
+                <cwmp:GetParameterAttributesResponse>
+                  <ParameterList soap:arrayType="cwmp:ParameterAttributeStruct[3]">
+
+                    <!-- Active notification on WAN IP changes -->
+                    <ParameterAttributeStruct>
+                      <Name>Device.IP.Interface.1.IPv4Address.1.IPAddress</Name>
+                      <Notification>2</Notification>
+                      <AccessList soap:arrayType="xsd:string[0]" />
+                    </ParameterAttributeStruct>
+
+                    <!-- Passive notification on software version -->
+                    <ParameterAttributeStruct>
+                      <Name>Device.DeviceInfo.SoftwareVersion</Name>
+                      <Notification>1</Notification>
+                      <AccessList soap:arrayType="xsd:string[0]" />
+                    </ParameterAttributeStruct>
+
+                    <!-- Notification off on uptime, with Subscriber access -->
+                    <ParameterAttributeStruct>
+                      <Name>Device.DeviceInfo.UpTime</Name>
+                      <Notification>0</Notification>
+                      <AccessList soap:arrayType="xsd:string[1]">
+                        <string>Subscriber</string>
+                      </AccessList>
+                    </ParameterAttributeStruct>
+
+                  </ParameterList>
+                </cwmp:GetParameterAttributesResponse>
+              </soapenv:Body>
+
+            </soapenv:Envelope>
+"#;
+
+        let cursor = Cursor::new(soap);
+        let mut reader = IoReader::new(cursor).with_error_info();
+        let envelope = EnvelopeType::deserialize(&mut reader).unwrap();
+
+        let rpc: Rpc = envelope.body.content.try_into().unwrap();
+        dbg!(&rpc);
+    }
+
+    #[test]
+    fn deserialize_add_object_response() {
+        let soap = r#"
+<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope
+  xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:soap="http://schemas.xmlsoap.org/soap/encoding/"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:cwmp="urn:dslforum-org:cwmp-1-1">
+
+  <soapenv:Header>
+    <cwmp:ID soapenv:mustUnderstand="1">1234567894</cwmp:ID>
+  </soapenv:Header>
+
+  <soapenv:Body>
+    <cwmp:AddObjectResponse>
+      <InstanceNumber>2</InstanceNumber>
+      <Status>0</Status>
+    </cwmp:AddObjectResponse>
+  </soapenv:Body>
+
+</soapenv:Envelope>
+"#;
+
+        let cursor = Cursor::new(soap);
+        let mut reader = IoReader::new(cursor).with_error_info();
+        let envelope = EnvelopeType::deserialize(&mut reader).unwrap();
+
+        let rpc: Rpc = envelope.body.content.try_into().unwrap();
+        dbg!(&rpc);
+    }
+
+    #[test]
+    fn deserialize_delete_object_response() {
+        let soap = r#"
+<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope
+  xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:soap="http://schemas.xmlsoap.org/soap/encoding/"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:cwmp="urn:dslforum-org:cwmp-1-2">
+
+  <soapenv:Header>
+    <cwmp:ID soapenv:mustUnderstand="1">1234567895</cwmp:ID>
+  </soapenv:Header>
+
+  <soapenv:Body>
+    <cwmp:DeleteObjectResponse>
+      <Status>0</Status>
+    </cwmp:DeleteObjectResponse>
+  </soapenv:Body>
+
+</soapenv:Envelope>
+"#;
+
+        let cursor = Cursor::new(soap);
+        let mut reader = IoReader::new(cursor).with_error_info();
+        let envelope = EnvelopeType::deserialize(&mut reader).unwrap();
+
+        let rpc: Rpc = envelope.body.content.try_into().unwrap();
+        dbg!(&rpc);
+    }
+
+    #[test]
+    fn deserialize_download_response() {
+        let soap = r#"
+<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope
+  xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:soap="http://schemas.xmlsoap.org/soap/encoding/"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:cwmp="urn:dslforum-org:cwmp-1-0">
+  <soapenv:Header>
+    <cwmp:ID soapenv:mustUnderstand="1">1234567896</cwmp:ID>
+  </soapenv:Header>
+  <soapenv:Body>
+    <cwmp:DownloadResponse>
+      <Status>1</Status>
+      <StartTime>2024-01-01T10:00:00Z</StartTime>
+      <CompleteTime>0001-01-01T00:00:00Z</CompleteTime>
+    </cwmp:DownloadResponse>
+  </soapenv:Body>
+</soapenv:Envelope>
 "#;
 
         let cursor = Cursor::new(soap);

@@ -285,6 +285,8 @@ pub fn create_array_type_content(schemas: &Schemas, types: &MetaTypes) -> Elemen
         "MethodList",
         "ParameterValueStruct",
         "SetParameterAttributesStruct",
+        "ParameterInfoStruct",
+        "ParameterAttributeStruct",
     ];
     let mut elements = create_choice_elements(array_types, schemas, types, IdentType::Type);
 

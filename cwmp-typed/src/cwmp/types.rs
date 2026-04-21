@@ -19,12 +19,45 @@ pub enum AttributeNotificationValue {
     _6,
 }
 
+#[derive(Debug)]
+pub enum SetParameterValuesResponseStatus {
+    #[doc = "All Parameter changes have been validated and applied"]
+    _0,
+    #[doc = "All Parameter changes have been validated and committed, but some or all are not yet applied (for example, if a reboot is required before the new values are applied)"]
+    _1,
+}
+
+#[derive(Debug)]
+pub enum AddObjectResponseStatus {
+    #[doc = "The object has been created"]
+    _0,
+    #[doc = "The object creation has been validated and committed, but not yet applied"]
+    _1,
+}
+
+#[derive(Debug)]
+pub enum DeleteObjectResponseStatus {
+    #[doc = "The object has been deleted"]
+    _0,
+    #[doc = "The object deletion has been validated and committed, but not yet applied"]
+    _1,
+}
+
+#[derive(Debug)]
+pub enum DownloadResponseStatus {
+    #[doc = "Download has completed and been applied"]
+    _0,
+    #[doc = "Download has not yet been completed and applied"]
+    _1,
+}
+
 pub struct TypedArray<T, I> {
     inner: Vec<I>,
     _marker: std::marker::PhantomData<T>,
 }
 
 pub type SetParameterAttributesNotification = AttributeNotificationValue;
+pub type ParameterAttributeStructNotification = AttributeNotificationValue;
 
 #[derive(Debug)]
 pub struct ParameterList<T>(pub Vec<T>);
@@ -135,6 +168,132 @@ pub struct MethodList(pub Vec<String>);
 pub struct MethodNames(pub Vec<String>);
 
 #[derive(Debug)]
+pub struct GetParameterNamesResponse {
+    pub parameter_list: ParameterList<ParameterInfoStruct>,
+}
+
+#[derive(Debug)]
+pub struct ParameterInfoStruct {
+    pub name: String,
+    pub writable: bool,
+}
+
+#[derive(Debug)]
+pub struct SetParameterValuesResponse {
+    pub status: SetParameterValuesResponseStatus,
+}
+
+impl SetParameterValuesResponse {
+    pub fn new<T: Into<SetParameterValuesResponseStatus>>(status: T) -> Self {
+        Self {
+            status: status.into(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct GetParameterValuesResponse {
+    pub parameter_list: ParameterList<ParameterValueStruct>,
+}
+
+impl GetParameterValuesResponse {
+    pub fn new<T: TryInto<ParameterList<ParameterValueStruct>, Error = Error>>(
+        parameter_list: T,
+    ) -> Result<Self, Error> {
+        Ok(Self {
+            parameter_list: parameter_list.try_into()?,
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct GetParameterAttributesResponse {
+    pub parameter_list: ParameterList<ParameterAttributeStruct>,
+}
+
+impl GetParameterAttributesResponse {
+    pub fn new<T: TryInto<ParameterList<ParameterAttributeStruct>, Error = Error>>(
+        parameter_list: T,
+    ) -> Result<Self, Error> {
+        Ok(Self {
+            parameter_list: parameter_list.try_into()?,
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct ParameterAttributeStruct {
+    pub name: String,
+    pub notification: ParameterAttributeStructNotification,
+    pub access_list: Box<AccessList>,
+}
+
+impl<N, A> TryFrom<(String, N, Box<A>)> for ParameterAttributeStruct
+where
+    N: Into<ParameterAttributeStructNotification>,
+    A: TryInto<AccessList, Error = Error>,
+{
+    type Error = Error;
+
+    fn try_from(input: (String, N, Box<A>)) -> Result<Self, Self::Error> {
+        Ok(Self {
+            name: input.0,
+            notification: input.1.into(),
+            access_list: Box::new((*input.2).try_into()?),
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct AddObjectResponse {
+    instance_number: u32,
+    status: AddObjectResponseStatus,
+}
+
+impl AddObjectResponse {
+    pub fn new<T: Into<AddObjectResponseStatus>>(instance_number: u32, status: T) -> Self {
+        Self {
+            instance_number,
+            status: status.into(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct DeleteObjectResponse {
+    status: DeleteObjectResponseStatus,
+}
+
+impl DeleteObjectResponse {
+    pub fn new<T: Into<DeleteObjectResponseStatus>>(status: T) -> Self {
+        Self {
+            status: status.into(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct DownloadResponse {
+    status: DownloadResponseStatus,
+    start_time: String,
+    complete_time: String,
+}
+
+impl DownloadResponse {
+    pub fn new<T: Into<DownloadResponseStatus>>(
+        status: T,
+        start_time: String,
+        complete_time: String,
+    ) -> Self {
+        Self {
+            status: status.into(),
+            start_time,
+            complete_time,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct GetRPCMethodsResponse {
     method_list: MethodList,
 }
@@ -145,6 +304,16 @@ impl TryFrom<cwmp_xsd_schema::soapenc::ArrayType> for GetRPCMethodsResponse {
     fn try_from(input: cwmp_xsd_schema::soapenc::ArrayType) -> Result<Self, Self::Error> {
         Ok(GetRPCMethodsResponse {
             method_list: input.try_into()?,
+        })
+    }
+}
+
+impl TryFrom<cwmp_xsd_schema::soapenc::ArrayType> for GetParameterNamesResponse {
+    type Error = Error;
+
+    fn try_from(input: cwmp_xsd_schema::soapenc::ArrayType) -> Result<Self, Self::Error> {
+        Ok(Self {
+            parameter_list: input.try_into()?,
         })
     }
 }
@@ -316,6 +485,12 @@ impl From<(String, String)> for AddObject {
     }
 }
 
+impl From<(String, bool)> for ParameterInfoStruct {
+    fn from((name, writable): (String, bool)) -> Self {
+        ParameterInfoStruct { name, writable }
+    }
+}
+
 impl From<String> for Reboot {
     fn from(command_key: String) -> Reboot {
         Reboot { command_key }
@@ -388,6 +563,56 @@ impl_try_from_array_type! {
                     .inspect_err(log_err)
                     .ok(),
 
+                _ => None,
+            }
+        };
+
+        values
+
+    }
+}
+
+impl_try_from_array_type! {
+    ParameterList<ParameterInfoStruct>,
+    {
+        use cwmp_xsd_schema::soapenc::ArrayTypeContent;
+
+        let values = |content: ArrayTypeContent|  {
+
+            match content {
+                ArrayTypeContent::ParameterInfoStruct10(inner) => Some((inner.name, inner.writable).into()),
+                ArrayTypeContent::ParameterInfoStruct11(inner) => Some((inner.name, inner.writable).into()),
+                ArrayTypeContent::ParameterInfoStruct12(inner) => Some((inner.name, inner.writable).into()),
+                _ => None,
+            }
+        };
+
+        values
+
+    }
+}
+
+impl_try_from_array_type! {
+    ParameterList<ParameterAttributeStruct>,
+    {
+        use cwmp_xsd_schema::soapenc::ArrayTypeContent;
+
+        let values = |content: ArrayTypeContent|  {
+
+            let log_err = |e: &Error| eprintln!("Error converting to ParameterAttributeStruct: {e}");
+            match content {
+                ArrayTypeContent::ParameterAttributeStruct10(inner) => (inner.name, inner.notification, Box::new(inner.access_list))
+                    .try_into()
+                    .inspect_err(log_err)
+                    .ok(),
+                ArrayTypeContent::ParameterAttributeStruct11(inner) => (inner.name, inner.notification, inner.access_list)
+                    .try_into()
+                    .inspect_err(log_err)
+                    .ok(),
+                ArrayTypeContent::ParameterAttributeStruct12(inner) => (inner.name, inner.notification, inner.access_list)
+                    .try_into()
+                    .inspect_err(log_err)
+                    .ok(),
                 _ => None,
             }
         };
@@ -519,12 +744,17 @@ impl_from_vec!(AccessList, AccessListMember);
 impl_from_vec!(MethodList, String);
 impl_from_vec!(ParameterNames, ParameterName);
 impl_from_vec!(ParameterList<ParameterValueStruct>, ParameterValueStruct);
+impl_from_vec!(ParameterList<ParameterInfoStruct>, ParameterInfoStruct);
+impl_from_vec!(
+    ParameterList<ParameterAttributeStruct>,
+    ParameterAttributeStruct
+);
 impl_from_vec!(
     ParameterList<SetParameterAttributesStruct>,
     SetParameterAttributesStruct
 );
 
-macro_rules! impl_from_set_parameter_attributes_struct_notification {
+macro_rules! impl_parameter_attributes_struct_notification {
     ($($ty: ty),+ ) => {
         $(
             impl From<$ty> for AttributeNotificationValue {
@@ -540,7 +770,52 @@ macro_rules! impl_from_set_parameter_attributes_struct_notification {
     };
 }
 
-impl_from_set_parameter_attributes_struct_notification!(
+impl_parameter_attributes_struct_notification!(
     cwmp_xsd_schema::SetParameterAttributesStructNotificationElementType,
-    cwmp_xsd_schema::tns::SetParameterAttributesStructNotificationElementType
+    cwmp_xsd_schema::tns::SetParameterAttributesStructNotificationElementType,
+    cwmp_xsd_schema::ParameterAttributeStructNotificationElementType,
+    cwmp_xsd_schema::tns::ParameterAttributeStructNotificationElementType
+);
+
+macro_rules! impl_response_status {
+    ($st:ty; $($ty: ty),+ ) => {
+        $(
+            impl From<$ty> for $st {
+                fn from(input: $ty) -> Self {
+                    match input {
+                        <$ty>::_0 => <$st>::_0,
+                        <$ty>::_1 => <$st>::_1,
+                    }
+                }
+            }
+        )+
+    };
+}
+
+impl_response_status!(
+    SetParameterValuesResponseStatus;
+    cwmp_xsd_schema::SetParameterValuesResponseStatus,
+    cwmp_xsd_schema::tns::SetParameterValuesResponseStatus,
+    cwmp_xsd_schema::cwmp_12::SetParameterValuesResponseStatus
+);
+
+impl_response_status!(
+    AddObjectResponseStatus;
+    cwmp_xsd_schema::AddObjectResponseStatus,
+    cwmp_xsd_schema::tns::AddObjectResponseStatus,
+    cwmp_xsd_schema::cwmp_12::AddObjectResponseStatus
+);
+
+impl_response_status!(
+    DeleteObjectResponseStatus;
+    cwmp_xsd_schema::DeleteObjectResponseStatus,
+    cwmp_xsd_schema::tns::DeleteObjectResponseStatus,
+    cwmp_xsd_schema::cwmp_12::DeleteObjectResponseStatus
+);
+
+impl_response_status!(
+    DownloadResponseStatus;
+    cwmp_xsd_schema::DownloadResponseStatus,
+    cwmp_xsd_schema::tns::DownloadResponseStatus,
+    cwmp_xsd_schema::cwmp_12::DownloadResponseStatus
 );
